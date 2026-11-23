@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build & release artifacts
+dist/
+build/
+release/
+.extension-dist/
+coverage/
+*.zip
+
+# AI Studio & editor metadata
+.aistudio/
+.aistudio
+
+# OS & logs
+.DS_Store
+*.log
+
+# Environment files
+.env*
+!.env.example

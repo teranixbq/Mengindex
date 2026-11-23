@@ -1,0 +1,8 @@
+{
+  "name": "IDB Studio",
+  "description": "Chrome Extension Manifest V3 bergaya Dark Developer Studio untuk inspeksi, filter, dan query SQL pada local IndexedDB tab aktif.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
