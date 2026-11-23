@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Mengindex — IndexedDB SQL Explorer",
   "version": "1.0.0",
-  "description": "One-click Dark Developer Studio workspace to inspect, filter, and run SQL queries on the active tab's local IndexedDB.",
+  "description": "Browse, filter, and query the active tab's IndexedDB with SQL.",
   "permissions": [
     "activeTab",
     "scripting",

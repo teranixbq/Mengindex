@@ -2,7 +2,7 @@
   "name": "mengindex",
   "private": true,
   "version": "1.0.0",
-  "description": "Manifest V3 Chrome Extension to inspect, filter, and run SQL queries on the active tab's local IndexedDB.",
+  "description": "Chrome extension to browse, filter, and query IndexedDB with SQL.",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",

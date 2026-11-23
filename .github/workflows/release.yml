@@ -2,6 +2,7 @@ name: Release Chrome Extension
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -14,6 +15,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Build & Publish Extension Release
@@ -22,19 +27,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Resolve release version & tag
+      - name: Check if new version should be released
         id: meta
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          SHOULD_RELEASE="true"
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME}"
             VERSION="${TAG#v}"
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             INPUT_VER="${{ github.event.inputs.version }}"
             if [ -n "$INPUT_VER" ]; then
               VERSION="${INPUT_VER#v}"
@@ -42,6 +51,14 @@ jobs:
               VERSION=$(node -p "require('./package.json').version")
             fi
             TAG="v${VERSION}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            TAG="v${VERSION}"
+            EXISTING_TAG=$(git ls-remote --tags origin "refs/tags/${TAG}")
+            if [ -n "$EXISTING_TAG" ]; then
+              echo "Tag ${TAG} already exists. Skipping release for this commit."
+              SHOULD_RELEASE="false"
+            fi
           fi
 
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -49,11 +66,13 @@ jobs:
             exit 1
           fi
 
+          echo "should_release=${SHOULD_RELEASE}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Resolved release ${TAG} (manifest version ${VERSION})"
+          echo "Release check: tag=${TAG}, version=${VERSION}, should_release=${SHOULD_RELEASE}"
 
       - name: Install dependencies
+        if: steps.meta.outputs.should_release == 'true'
         run: |
           if [ -f package-lock.json ]; then
             npm ci
@@ -62,19 +81,28 @@ jobs:
           fi
 
       - name: TypeScript typecheck
+        if: steps.meta.outputs.should_release == 'true'
         run: npm run lint
 
-      - name: Build & package extension ZIP
+      - name: Build, package ZIP & generate release notes
+        if: steps.meta.outputs.should_release == 'true'
         run: |
           npm run build
           npx tsx scripts/package-extension.ts --version "${{ steps.meta.outputs.version }}"
+          npx tsx scripts/generate-release-notes.ts \
+            --tag "${{ steps.meta.outputs.tag }}" \
+            --version "${{ steps.meta.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --out release/RELEASE_NOTES.md
 
       - name: Publish GitHub Release
+        if: steps.meta.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: Mengindex ${{ steps.meta.outputs.tag }}
-          generate_release_notes: true
+          body_path: release/RELEASE_NOTES.md
           files: |
             release/mengindex-chrome-extension-v${{ steps.meta.outputs.version }}.zip
             release/mengindex-chrome-extension.zip

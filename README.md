@@ -62,18 +62,23 @@ npm run build:extension
 4. Click **Load unpacked** and select the extracted folder (or `release/unpacked/`).
 5. Open any site using IndexedDB and click the **Mengindex** toolbar icon.
 
-## Release Workflow (Versioning)
+## Release Workflow (Versioning & Changelog)
 
-Regular commits pushed to `main` only run **CI** verification (typecheck, 300-line file limit check, and build verification) and do **not** create a new version.
+Regular commits pushed to `main` only run **CI** verification (typecheck, 300-line file limit check, and build verification). The release workflow checks whether `v<package.json version>` already exists — if the tag already exists, **no new release is created**.
 
-When a feature set is ready to ship as a new version:
+### Publishing the Next Release Automatically
 
-```bash
-# 1. Bump version in package.json and create a git tag (patch | minor | major)
-npm version minor -m "release: v%s"
-
-# 2. Push commit and version tag to trigger the Release workflow
-git push origin main --follow-tags
-```
-
-GitHub Actions (`release.yml`) automatically syncs the tag version into `manifest.json`, builds the extension, packages `mengindex-chrome-extension-vX.Y.Z.zip`, and publishes a GitHub Release with auto-generated release notes. You can also trigger a release manually from the **Actions → Release Chrome Extension** tab.
+1. Develop and push commits to `main` as usual (using prefixes like `feat: ...`, `fix: ...`, `refactor: ...` lets the release notes group changes automatically into **Features**, **Bug Fixes**, and **Improvements**).
+2. When ready to ship a new version, bump `"version"` in `package.json` (e.g. `1.0.0` → `1.1.0` for new features, or `1.0.1` for bug fixes) and push to `main`:
+   - Directly via `package.json` edit + push (works with GitHub UI, local git, or AI Studio Save to GitHub), **or**
+   - Locally via CLI:
+     ```bash
+     npm version minor -m "release: v%s"   # patch | minor | major
+     git push origin main --follow-tags
+     ```
+3. GitHub Actions (`release.yml`) automatically:
+   - Detects the new unpublished version `vX.Y.Z`
+   - Collects all commits since the previous release tag and generates categorized Markdown **Release Notes** + a **Full Changelog** diff link
+   - Syncs `manifest.json` version, builds & zips `mengindex-chrome-extension-vX.Y.Z.zip`
+   - Creates tag `vX.Y.Z` and publishes the **GitHub Release**
+4. You can also trigger a release manually anytime from **Actions → Release Chrome Extension → Run workflow**.
