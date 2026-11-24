@@ -21,6 +21,7 @@ export interface OrderItem {
 
 export type ParsedQuery =
   | { type: 'SHOW_STORES' }
+  | { type: 'DELETE'; fromStore: string; where?: WhereExpr }
   | {
       type: 'SELECT';
       distinct: boolean;
@@ -104,6 +105,18 @@ class Parser {
         return { type: 'SHOW_STORES' };
       }
       throw new SqlSyntaxError('Use SHOW TABLES or SHOW STORES.', this.peek().pos);
+    }
+
+    if (this.matchKeyword('DELETE')) {
+      this.expectKeyword('FROM');
+      const fromStore = this.parseIdentifierName();
+      let where: WhereExpr | undefined;
+      if (this.matchKeyword('WHERE')) where = this.parseOr();
+      if (this.peek().type === 'SEMICOLON') this.advance();
+      if (this.peek().type !== 'EOF') {
+        throw new SqlSyntaxError(`Unexpected token "${this.peek().value}" at position ${this.peek().pos + 1}.`, this.peek().pos);
+      }
+      return { type: 'DELETE', fromStore, where };
     }
 
     this.expectKeyword('SELECT');

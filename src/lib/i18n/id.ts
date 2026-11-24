@@ -97,4 +97,19 @@ export const id: Translations = {
   storeNotFoundError: (store, db, available) =>
     `Object store "${store}" tidak ditemukan di database "${db}". Store tersedia: ${available || '(kosong)'}.`,
   sqlExecError: 'Gagal menjalankan query SQL.',
+
+  deleteSelected: (count) => `Hapus (${count})`,
+  clearSelection: 'Batal pilih',
+  selectAllRowsAria: 'Pilih semua baris di halaman ini',
+  selectRowAria: 'Pilih baris untuk dihapus',
+  deleteRowTitle: 'Hapus record',
+  confirmDeleteTitle: 'Konfirmasi Hapus Record',
+  confirmDeleteBody: (count, store) =>
+    `Hapus permanen ${count} record dari "${store}"? Tindakan ini tidak dapat dibatalkan.`,
+  confirmDeleteClearAllWarning: 'Tanpa klausa WHERE — seluruh isi object store ini akan dikosongkan.',
+  confirmDeleteBtn: (count) => `Hapus ${count} record`,
+  deletingLabel: 'Menghapus...',
+  cancelLabel: 'Batal',
+  deletedSuccessToast: (count, store) => `Berhasil menghapus ${count} record dari "${store}".`,
+  deleteFailedError: 'Gagal menghapus record dari IndexedDB.',
 };

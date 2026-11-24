@@ -118,4 +118,18 @@ export interface Translations {
   noDbSelectedError: string;
   storeNotFoundError: (store: string, db: string, available: string) => string;
   sqlExecError: string;
+
+  deleteSelected: (count: string) => string;
+  clearSelection: string;
+  selectAllRowsAria: string;
+  selectRowAria: string;
+  deleteRowTitle: string;
+  confirmDeleteTitle: string;
+  confirmDeleteBody: (count: string, store: string) => string;
+  confirmDeleteClearAllWarning: string;
+  confirmDeleteBtn: (count: string) => string;
+  deletingLabel: string;
+  cancelLabel: string;
+  deletedSuccessToast: (count: string, store: string) => string;
+  deleteFailedError: string;
 }

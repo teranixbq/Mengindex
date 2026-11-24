@@ -209,3 +209,54 @@ export async function injectedReadStore(dbName, storeName, maxRows) {
     };
   });
 }
+
+export async function injectedDeleteRecords(dbName, storeName, keys, clearAll) {
+  return new Promise((resolve) => {
+    const req = indexedDB.open(dbName);
+    req.onerror = () => resolve({ ok: false, error: req.error?.message || `Failed to open ${dbName}` });
+    req.onsuccess = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.close();
+        resolve({ ok: false, error: `Object store "${storeName}" not found in "${dbName}".` });
+        return;
+      }
+
+      try {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        let deletedCount = 0;
+
+        if (clearAll) {
+          const countReq = store.count();
+          countReq.onsuccess = () => {
+            deletedCount = countReq.result || 0;
+            store.clear();
+          };
+        } else {
+          const list = Array.isArray(keys) ? keys : [];
+          for (const key of list) {
+            store.delete(key);
+            deletedCount++;
+          }
+        }
+
+        tx.oncomplete = () => {
+          db.close();
+          resolve({ ok: true, deletedCount });
+        };
+        tx.onerror = () => {
+          db.close();
+          resolve({ ok: false, error: tx.error?.message || 'Failed to delete records.' });
+        };
+        tx.onabort = () => {
+          db.close();
+          resolve({ ok: false, error: tx.error?.message || 'Delete transaction was aborted.' });
+        };
+      } catch (err) {
+        db.close();
+        resolve({ ok: false, error: err?.message || 'IndexedDB delete transaction failed.' });
+      }
+    };
+  });
+}

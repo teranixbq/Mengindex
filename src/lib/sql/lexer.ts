@@ -19,6 +19,7 @@ export interface Token {
 
 const KEYWORDS = new Set([
   'SELECT',
+  'DELETE',
   'DISTINCT',
   'FROM',
   'WHERE',

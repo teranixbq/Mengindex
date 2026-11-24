@@ -1,7 +1,13 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { formatCellValue } from '../../lib/exportUtils';
 import type { Translations } from '../../lib/i18n';
 import type { IDBRecordRow, SortState } from '../../types/idb';
+
+export function getRowKeyId(row: IDBRecordRow): string | null {
+  if (!('_idbKey' in row) || row._idbKey === undefined) return null;
+  return JSON.stringify(row._idbKey);
+}
 
 interface TableDataGridProps {
   storeName: string;
@@ -18,6 +24,9 @@ interface TableDataGridProps {
   onClearAllFilters: () => void;
   selectedRow: IDBRecordRow | null;
   onSelectRow: (row: IDBRecordRow) => void;
+  checkedKeyIds: Set<string>;
+  onToggleRowCheck: (row: IDBRecordRow) => void;
+  onToggleAllPageCheck: (pageRows: IDBRecordRow[], shouldCheck: boolean) => void;
   t: Translations;
 }
 
@@ -36,8 +45,27 @@ export function TableDataGrid({
   onClearAllFilters,
   selectedRow,
   onSelectRow,
+  checkedKeyIds,
+  onToggleRowCheck,
+  onToggleAllPageCheck,
   t,
 }: TableDataGridProps) {
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  const deletableRows = rows.filter((r) => getRowKeyId(r) !== null);
+  const checkedOnPage = deletableRows.filter((r) => {
+    const id = getRowKeyId(r);
+    return id !== null && checkedKeyIds.has(id);
+  }).length;
+  const allPageChecked = deletableRows.length > 0 && checkedOnPage === deletableRows.length;
+  const somePageChecked = checkedOnPage > 0 && checkedOnPage < deletableRows.length;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = somePageChecked;
+    }
+  }, [somePageChecked]);
+
   if (isLoading) {
     return (
       <div className="flex-1 overflow-auto bg-[#0B0F17] p-5 space-y-2">
@@ -73,6 +101,17 @@ export function TableDataGrid({
       <table className="w-full border-collapse text-left">
         <thead className="sticky top-0 z-10 bg-[#111827] border-b border-[#1F2937]">
           <tr>
+            <th className="w-10 px-3 py-2.5 text-center border-r border-[#1F2937]/60 select-none">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={allPageChecked}
+                disabled={deletableRows.length === 0}
+                onChange={() => onToggleAllPageCheck(deletableRows, !allPageChecked)}
+                aria-label={t.selectAllRowsAria}
+                className="w-3.5 h-3.5 rounded border-[#334155] bg-[#0B0F17] accent-[#38BDF8] cursor-pointer align-middle"
+              />
+            </th>
             <th className="w-12 px-3 py-2.5 text-[11px] font-mono font-medium text-[#64748B] text-right border-r border-[#1F2937]/60 select-none">
               #
             </th>
@@ -110,15 +149,34 @@ export function TableDataGrid({
         <tbody className="divide-y divide-[#1F2937]/70">
           {rows.map((row, idx) => {
             const absoluteIdx = (safePage - 1) * pageSize + idx + 1;
+            const keyId = getRowKeyId(row);
+            const isChecked = keyId !== null && checkedKeyIds.has(keyId);
             const isSelected = selectedRow === row;
             return (
               <tr
-                key={absoluteIdx}
+                key={keyId ?? absoluteIdx}
                 onClick={() => onSelectRow(row)}
                 className={`h-[38px] transition-colors cursor-pointer ${
-                  isSelected ? 'bg-[#38BDF8]/12' : 'hover:bg-[#161F30]'
+                  isChecked
+                    ? 'bg-[#DC2626]/10 hover:bg-[#DC2626]/15'
+                    : isSelected
+                      ? 'bg-[#38BDF8]/12'
+                      : 'hover:bg-[#161F30]'
                 }`}
               >
+                <td
+                  className="px-3 py-2 text-center border-r border-[#1F2937]/40 select-none"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={keyId === null}
+                    onChange={() => onToggleRowCheck(row)}
+                    aria-label={t.selectRowAria}
+                    className="w-3.5 h-3.5 rounded border-[#334155] bg-[#0B0F17] accent-[#EF4444] cursor-pointer align-middle"
+                  />
+                </td>
                 <td className="px-3 py-2 text-[11px] font-mono tabular-nums text-[#64748B] text-right border-r border-[#1F2937]/40 select-none">
                   {absoluteIdx}
                 </td>

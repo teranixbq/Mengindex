@@ -97,4 +97,19 @@ export const en: Translations = {
   storeNotFoundError: (store, db, available) =>
     `Object store "${store}" not found in database "${db}". Available stores: ${available || '(empty)'}.`,
   sqlExecError: 'Failed to execute SQL query.',
+
+  deleteSelected: (count) => `Delete (${count})`,
+  clearSelection: 'Clear selection',
+  selectAllRowsAria: 'Select all rows on this page',
+  selectRowAria: 'Select row for deletion',
+  deleteRowTitle: 'Delete record',
+  confirmDeleteTitle: 'Confirm Record Deletion',
+  confirmDeleteBody: (count, store) =>
+    `Permanently delete ${count} record(s) from "${store}"? This action cannot be undone.`,
+  confirmDeleteClearAllWarning: 'No WHERE clause — every record in this object store will be cleared.',
+  confirmDeleteBtn: (count) => `Delete ${count} record(s)`,
+  deletingLabel: 'Deleting...',
+  cancelLabel: 'Cancel',
+  deletedSuccessToast: (count, store) => `Deleted ${count} record(s) from "${store}".`,
+  deleteFailedError: 'Failed to delete records from IndexedDB.',
 };

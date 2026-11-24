@@ -18,6 +18,8 @@ export interface SqlSuggestion {
 
 const SQL_KEYWORDS: { label: string; detail?: string }[] = [
   { label: 'SELECT' },
+  { label: 'DELETE' },
+  { label: 'DELETE FROM' },
   { label: 'DISTINCT' },
   { label: 'FROM' },
   { label: 'WHERE' },

@@ -1,4 +1,8 @@
-import { injectedListDatabases, injectedReadStore } from './injectedReaders.js';
+import {
+  injectedDeleteRecords,
+  injectedListDatabases,
+  injectedReadStore,
+} from './injectedReaders.js';
 
 /**
  * Mengindex — Manifest V3 Background Service Worker
@@ -81,7 +85,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
-      if (message.type === 'LIST_DATABASES' || message.type === 'READ_STORE') {
+      if (
+        message.type === 'LIST_DATABASES' ||
+        message.type === 'READ_STORE' ||
+        message.type === 'DELETE_RECORDS'
+      ) {
         const tabId = Number(message.tabId);
         const tab = await chrome.tabs.get(tabId).catch(() => null);
         if (!tab) {
@@ -97,19 +105,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           return;
         }
 
-        const results =
-          message.type === 'LIST_DATABASES'
-            ? await chrome.scripting.executeScript({
-                target: { tabId },
-                world: 'MAIN',
-                func: injectedListDatabases,
-              })
-            : await chrome.scripting.executeScript({
-                target: { tabId },
-                world: 'MAIN',
-                func: injectedReadStore,
-                args: [message.dbName, message.storeName, message.limit || 5000],
-              });
+        let results;
+        if (message.type === 'LIST_DATABASES') {
+          results = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            func: injectedListDatabases,
+          });
+        } else if (message.type === 'READ_STORE') {
+          results = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            func: injectedReadStore,
+            args: [message.dbName, message.storeName, message.limit || 5000],
+          });
+        } else {
+          results = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            func: injectedDeleteRecords,
+            args: [
+              message.dbName,
+              message.storeName,
+              Array.isArray(message.keys) ? message.keys : [],
+              Boolean(message.clearAll),
+            ],
+          });
+        }
 
         sendResponse(results?.[0]?.result || { ok: false, error: 'No response from target tab.' });
         return;

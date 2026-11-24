@@ -96,4 +96,19 @@ export const zh: Translations = {
   storeNotFoundError: (store, db, available) =>
     `数据库 "${db}" 中未找到对象存储 "${store}"。可用存储表: ${available || '(空)'}。`,
   sqlExecError: '执行 SQL 查询失败。',
+
+  deleteSelected: (count) => `删除 (${count})`,
+  clearSelection: '取消选择',
+  selectAllRowsAria: '全选当前页行',
+  selectRowAria: '选择要删除的行',
+  deleteRowTitle: '删除记录',
+  confirmDeleteTitle: '确认删除记录',
+  confirmDeleteBody: (count, store) =>
+    `确定要从 "${store}" 中永久删除 ${count} 条记录吗？此操作无法撤销。`,
+  confirmDeleteClearAllWarning: '未指定 WHERE 条件 — 将清空该对象存储中的所有记录。',
+  confirmDeleteBtn: (count) => `删除 ${count} 条记录`,
+  deletingLabel: '删除中...',
+  cancelLabel: '取消',
+  deletedSuccessToast: (count, store) => `已从 "${store}" 中删除 ${count} 条记录。`,
+  deleteFailedError: '从 IndexedDB 删除记录失败。',
 };

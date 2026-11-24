@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Translations } from '../lib/i18n';
 import {
+  deleteStoreRecords,
   getInitialTargetFromUrl,
   listDatabases,
   listInspectableTabs,
@@ -8,17 +9,13 @@ import {
   seedSampleIndexedDB,
 } from '../lib/idbAdapter';
 import { extractStoreFields, type FieldDescriptor } from '../lib/sqlAutocomplete';
-import type {
-  ColumnFilter,
-  DatabaseInfo,
-  IDBRecordRow,
-  SortState,
-  TargetTabInfo,
-} from '../types/idb';
+import type { DatabaseInfo, IDBRecordRow, TargetTabInfo } from '../types/idb';
+import { useTableState } from './useTableState';
 
 interface UseIdbWorkspaceParams {
   extensionMode: boolean;
   t: Translations;
+  locale: string;
   showToast: (message: string, kind?: 'info' | 'error') => void;
   onSyncSqlForStore: (storeName: string, onlyIfEmpty?: boolean) => void;
   onTabSwitched: () => void;
@@ -27,6 +24,7 @@ interface UseIdbWorkspaceParams {
 export function useIdbWorkspace({
   extensionMode,
   t,
+  locale,
   showToast,
   onSyncSqlForStore,
   onTabSwitched,
@@ -47,13 +45,7 @@ export function useIdbWorkspace({
   const [isLoadingStore, setIsLoadingStore] = useState(false);
   const [storeError, setStoreError] = useState<string | null>(null);
 
-  // Persisted Table View state across view tab switches
-  const [tableGlobalSearch, setTableGlobalSearch] = useState('');
-  const [tableFilters, setTableFilters] = useState<ColumnFilter[]>([]);
-  const [tableSort, setTableSort] = useState<SortState>({ column: null, direction: null });
-  const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(50);
-
+  const table = useTableState();
   const [selectedRow, setSelectedRow] = useState<IDBRecordRow | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
 
@@ -72,34 +64,25 @@ export function useIdbWorkspace({
     const prefix = `${selectedDb}::`;
     const map: Record<string, FieldDescriptor[]> = {};
     for (const [key, fields] of Object.entries(storeFieldsCache)) {
-      if (key.startsWith(prefix)) {
-        map[key.slice(prefix.length)] = fields;
-      }
+      if (key.startsWith(prefix)) map[key.slice(prefix.length)] = fields;
     }
     return map;
   }, [selectedDb, storeFieldsCache]);
-
-  const resetTableFilterState = useCallback(() => {
-    setTableGlobalSearch('');
-    setTableFilters([]);
-    setTableSort({ column: null, direction: null });
-    setTablePage(1);
-  }, []);
 
   const fetchStoreData = useCallback(
     async (tabId: number | null, dbName: string, storeName: string) => {
       setIsLoadingStore(true);
       setStoreError(null);
       setSelectedRow(null);
+      table.clearCheckedRows();
       try {
         const res = await readStoreRecords(tabId, dbName, storeName, 5000);
         setStoreRows(res.rows);
         setTotalCount(res.totalCount);
         setTruncated(res.truncated);
-        const extracted = extractStoreFields(res.rows);
         setStoreFieldsCache((prev) => ({
           ...prev,
-          [`${dbName}::${storeName}`]: extracted,
+          [`${dbName}::${storeName}`]: extractStoreFields(res.rows),
         }));
       } catch (err) {
         setStoreRows([]);
@@ -110,7 +93,7 @@ export function useIdbWorkspace({
         setIsLoadingStore(false);
       }
     },
-    [t.loadStoreError]
+    [t.loadStoreError, table.clearCheckedRows]
   );
 
   const refreshCatalog = useCallback(
@@ -132,7 +115,6 @@ export function useIdbWorkspace({
         }
 
         setDatabases(dbs);
-
         if (dbs.length === 0) {
           setSelectedDb(null);
           setSelectedStore(null);
@@ -186,13 +168,11 @@ export function useIdbWorkspace({
       const isDifferentStore = dbName !== selectedDb || storeName !== selectedStore;
       setSelectedDb(dbName);
       setSelectedStore(storeName);
-      if (isDifferentStore) {
-        resetTableFilterState();
-      }
+      if (isDifferentStore) table.resetTableState();
       onSyncSqlForStore(storeName, false);
       fetchStoreData(targetTab.tabId, dbName, storeName);
     },
-    [fetchStoreData, onSyncSqlForStore, resetTableFilterState, selectedDb, selectedStore, targetTab.tabId]
+    [fetchStoreData, onSyncSqlForStore, selectedDb, selectedStore, table.resetTableState, targetTab.tabId]
   );
 
   const handleSwitchTab = useCallback(
@@ -201,11 +181,11 @@ export function useIdbWorkspace({
       setSelectedDb(null);
       setSelectedStore(null);
       setStoreFieldsCache({});
-      resetTableFilterState();
+      table.resetTableState();
       onTabSwitched();
       refreshCatalog(nextTab, false);
     },
-    [onTabSwitched, refreshCatalog, resetTableFilterState]
+    [onTabSwitched, refreshCatalog, table.resetTableState]
   );
 
   const handleEnsureStoreFields = useCallback(
@@ -215,8 +195,7 @@ export function useIdbWorkspace({
       if (storeFieldsCache[cacheKey]) return;
       readStoreRecords(targetTab.tabId, selectedDb, storeName, 60)
         .then((res) => {
-          const fields = extractStoreFields(res.rows);
-          setStoreFieldsCache((prev) => ({ ...prev, [cacheKey]: fields }));
+          setStoreFieldsCache((prev) => ({ ...prev, [cacheKey]: extractStoreFields(res.rows) }));
         })
         .catch(() => {
           // Ignore background prefetch errors
@@ -238,6 +217,24 @@ export function useIdbWorkspace({
     }
   }, [refreshCatalog, showToast, t.sampleErrorToast, t.sampleReadyToast, targetTab]);
 
+  const handleDeleteRecords = useCallback(
+    async (dbName: string, storeName: string, keys: unknown[], clearAll = false) => {
+      const { deletedCount } = await deleteStoreRecords(
+        targetTab.tabId,
+        dbName,
+        storeName,
+        keys,
+        clearAll
+      );
+      setSelectedRow(null);
+      table.clearCheckedRows();
+      await refreshCatalog(targetTab, false);
+      showToast(t.deletedSuccessToast(deletedCount.toLocaleString(locale), storeName));
+      return deletedCount;
+    },
+    [locale, refreshCatalog, showToast, t, table.clearCheckedRows, targetTab]
+  );
+
   return {
     targetTab,
     availableTabs,
@@ -254,16 +251,7 @@ export function useIdbWorkspace({
     truncated,
     isLoadingStore,
     storeError,
-    tableGlobalSearch,
-    setTableGlobalSearch,
-    tableFilters,
-    setTableFilters,
-    tableSort,
-    setTableSort,
-    tablePage,
-    setTablePage,
-    tablePageSize,
-    setTablePageSize,
+    ...table,
     selectedRow,
     setSelectedRow,
     isSeeding,
@@ -272,5 +260,6 @@ export function useIdbWorkspace({
     handleSwitchTab,
     handleEnsureStoreFields,
     handleSeedSample,
+    handleDeleteRecords,
   };
 }

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { Translations } from '../lib/i18n';
 import type { IDBRecordRow } from '../types/idb';
@@ -6,6 +6,7 @@ import type { IDBRecordRow } from '../types/idb';
 interface RowInspectorProps {
   row: IDBRecordRow | null;
   onClose: () => void;
+  onDeleteRow?: (row: IDBRecordRow) => void;
   t: Translations;
 }
 
@@ -100,7 +101,7 @@ function JsonNode({ label, value, path, depth = 0, copyPathTitle, onCopyPath }: 
   );
 }
 
-export function RowInspector({ row, onClose, t }: RowInspectorProps) {
+export function RowInspector({ row, onClose, onDeleteRow, t }: RowInspectorProps) {
   const [mode, setMode] = useState<'tree' | 'raw'>('tree');
   const [copiedMsg, setCopiedMsg] = useState<string | null>(null);
 
@@ -153,6 +154,17 @@ export function RowInspector({ row, onClose, t }: RowInspectorProps) {
               <Copy className="w-3.5 h-3.5" />
             )}
           </button>
+          {onDeleteRow && '_idbKey' in row && row._idbKey !== undefined && (
+            <button
+              type="button"
+              onClick={() => onDeleteRow(row)}
+              title={t.deleteRowTitle}
+              aria-label={t.deleteRowTitle}
+              className="p-1.5 rounded text-[#94A3B8] hover:text-[#F87171] hover:bg-[#DC2626]/15 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

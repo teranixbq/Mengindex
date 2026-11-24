@@ -1,4 +1,3 @@
-import { Code2, Download } from 'lucide-react';
 import { useMemo } from 'react';
 import {
   applyFiltersToRows,
@@ -11,8 +10,9 @@ import type { Translations } from '../lib/i18n';
 import { getNestedValue } from '../lib/sqlEngine';
 import type { ColumnFilter, IDBRecordRow, SortState, StoreSchema } from '../types/idb';
 import { buildSqlFromTableFilters } from './table/buildSqlFromFilters';
-import { TableDataGrid } from './table/TableDataGrid';
+import { getRowKeyId, TableDataGrid } from './table/TableDataGrid';
 import { TableFilterBar } from './table/TableFilterBar';
+import { TableHeaderBar } from './table/TableHeaderBar';
 import { TablePagination } from './table/TablePagination';
 
 interface TableViewProps {
@@ -25,6 +25,11 @@ interface TableViewProps {
   error: string | null;
   selectedRow: IDBRecordRow | null;
   onSelectRow: (row: IDBRecordRow) => void;
+  checkedKeyIds: Set<string>;
+  onToggleRowCheck: (row: IDBRecordRow) => void;
+  onToggleAllPageCheck: (pageRows: IDBRecordRow[], shouldCheck: boolean) => void;
+  onClearCheckedRows: () => void;
+  onRequestDeleteRows: (rowsToDelete: IDBRecordRow[]) => void;
   onOpenInSql: (sql: string) => void;
   onSeedSample?: () => void;
   isExtensionMode: boolean;
@@ -52,6 +57,11 @@ export function TableView({
   error,
   selectedRow,
   onSelectRow,
+  checkedKeyIds,
+  onToggleRowCheck,
+  onToggleAllPageCheck,
+  onClearCheckedRows,
+  onRequestDeleteRows,
   onOpenInSql,
   onSeedSample,
   isExtensionMode,
@@ -103,6 +113,15 @@ export function TableView({
     return sortedRows.slice(start, start + pageSize);
   }, [sortedRows, safePage, pageSize]);
 
+  const checkedRows = useMemo(
+    () =>
+      rows.filter((r) => {
+        const id = getRowKeyId(r);
+        return id !== null && checkedKeyIds.has(id);
+      }),
+    [rows, checkedKeyIds]
+  );
+
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
@@ -148,57 +167,24 @@ export function TableView({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-      <div className="px-5 py-3 bg-[#0E131F] border-b border-[#1F2937] flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs min-w-0">
-          <span className="text-[#94A3B8] truncate">{dbName}</span>
-          <span aria-hidden="true" className="text-[#475569]">/</span>
-          <span className="font-mono font-medium text-[#F3F4F6] truncate">{storeSchema.name}</span>
-          <span aria-hidden="true" className="text-[#475569]">·</span>
-          <span className="font-mono tabular-nums text-[#94A3B8]">
-            {filteredRows.length.toLocaleString(locale)}
-            {hasActiveFilter ? ` / ${rows.length.toLocaleString(locale)}` : ''} {t.rowsLabel}
-          </span>
-          <span aria-hidden="true" className="text-[#475569]">·</span>
-          <span className="font-mono text-[#94A3B8]">keyPath: {keyPathLabel}</span>
-          {truncated && (
-            <>
-              <span aria-hidden="true" className="text-[#475569]">·</span>
-              <span className="text-[#F59E0B]">
-                {t.showingTruncated(rows.length.toLocaleString(locale), totalCount.toLocaleString(locale))}
-              </span>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => onOpenInSql(buildSqlFromTableFilters(storeSchema, filters, sort, numericCols))}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#38BDF8] bg-[#111827] border border-[#1F2937] hover:border-[#38BDF8]/50 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            {t.openInSql}
-          </button>
-          <button
-            type="button"
-            onClick={() => downloadAsCsv(`${dbName}_${storeSchema.name}`, columns, sortedRows)}
-            disabled={sortedRows.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#CBD5E1] bg-[#111827] border border-[#1F2937] hover:text-[#F3F4F6] hover:border-[#334155] disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => downloadAsJson(`${dbName}_${storeSchema.name}`, sortedRows)}
-            disabled={sortedRows.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#CBD5E1] bg-[#111827] border border-[#1F2937] hover:text-[#F3F4F6] hover:border-[#334155] disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            JSON
-          </button>
-        </div>
-      </div>
+      <TableHeaderBar
+        dbName={dbName}
+        storeName={storeSchema.name}
+        keyPathLabel={keyPathLabel}
+        filteredCount={filteredRows.length}
+        totalLoadedCount={rows.length}
+        totalStoreCount={totalCount}
+        truncated={truncated}
+        hasActiveFilter={hasActiveFilter}
+        selectedCount={checkedRows.length}
+        onDeleteSelected={() => onRequestDeleteRows(checkedRows)}
+        onClearSelection={onClearCheckedRows}
+        onOpenInSql={() => onOpenInSql(buildSqlFromTableFilters(storeSchema, filters, sort, numericCols))}
+        onExportCsv={() => downloadAsCsv(`${dbName}_${storeSchema.name}`, columns, sortedRows)}
+        onExportJson={() => downloadAsJson(`${dbName}_${storeSchema.name}`, sortedRows)}
+        t={t}
+        locale={locale}
+      />
 
       <TableFilterBar
         columns={columns}
@@ -254,6 +240,9 @@ export function TableView({
         onClearAllFilters={clearAllFilters}
         selectedRow={selectedRow}
         onSelectRow={onSelectRow}
+        checkedKeyIds={checkedKeyIds}
+        onToggleRowCheck={onToggleRowCheck}
+        onToggleAllPageCheck={onToggleAllPageCheck}
         t={t}
       />
 

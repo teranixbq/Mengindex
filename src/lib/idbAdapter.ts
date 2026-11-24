@@ -1,4 +1,5 @@
 import type { DatabaseInfo, IDBRecordRow, StoreReadResult, TargetTabInfo } from '../types/idb';
+import { deleteLocalStoreRecords } from './idb/deleteLocal';
 import { serializeLocalValue } from './idb/serialize';
 
 export { seedSampleIndexedDB } from './idb/seedSample';
@@ -237,4 +238,32 @@ export async function readStoreRecords(
       };
     };
   });
+}
+
+export async function deleteStoreRecords(
+  tabId: number | null,
+  dbName: string,
+  storeName: string,
+  keys: unknown[],
+  clearAll = false
+): Promise<{ deletedCount: number }> {
+  if (isChromeExtensionMode()) {
+    if (!tabId) throw new Error('Target tab is not selected.');
+    const res = await sendExtensionMessage<{
+      ok: boolean;
+      deletedCount?: number;
+      error?: string;
+    }>({
+      type: 'DELETE_RECORDS',
+      tabId,
+      dbName,
+      storeName,
+      keys,
+      clearAll,
+    });
+    if (!res.ok) throw new Error(res.error || `Failed to delete records from "${storeName}".`);
+    return { deletedCount: res.deletedCount ?? keys.length };
+  }
+
+  return deleteLocalStoreRecords(dbName, storeName, keys, clearAll);
 }

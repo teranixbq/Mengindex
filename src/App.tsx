@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ConfirmDeleteModal, type PendingDeleteAction } from './components/ConfirmDeleteModal';
 import { RowInspector } from './components/RowInspector';
 import { SchemaView } from './components/SchemaView';
 import { Sidebar } from './components/Sidebar';
@@ -16,7 +17,7 @@ import {
   type Language,
 } from './lib/i18n';
 import { isChromeExtensionMode } from './lib/idbAdapter';
-import type { ActiveView } from './types/idb';
+import type { ActiveView, IDBRecordRow } from './types/idb';
 
 export default function App() {
   const extensionMode = useMemo(() => isChromeExtensionMode(), []);
@@ -40,6 +41,8 @@ export default function App() {
   }, [language]);
 
   const [toast, setToast] = useState<{ kind: 'info' | 'error'; message: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PendingDeleteAction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const showToast = useCallback((message: string, kind: 'info' | 'error' = 'info') => {
     setToast({ message, kind });
@@ -55,7 +58,6 @@ export default function App() {
     handleResetSidebarWidth,
   } = useSidebarResize();
 
-  // Refs bridge circular callbacks between workspace & SQL runner without stale closures
   const syncSqlRef = useRef<(storeName: string, onlyIfEmpty?: boolean) => void>(() => {});
   const resetSqlRef = useRef<() => void>(() => {});
 
@@ -70,6 +72,7 @@ export default function App() {
   const workspace = useIdbWorkspace({
     extensionMode,
     t,
+    locale,
     showToast,
     onSyncSqlForStore: handleSyncSqlBridge,
     onTabSwitched: handleTabSwitchedBridge,
@@ -77,7 +80,7 @@ export default function App() {
 
   const clearSelectedRow = useCallback(() => {
     workspace.setSelectedRow(null);
-  }, [workspace]);
+  }, [workspace.setSelectedRow]);
 
   const sql = useSqlRunner({
     activeDbInfo: workspace.activeDbInfo,
@@ -85,8 +88,11 @@ export default function App() {
     selectedDb: workspace.selectedDb,
     selectedStore: workspace.selectedStore,
     storeRows: workspace.storeRows,
+    truncated: workspace.truncated,
     targetTabId: workspace.targetTab.tabId,
     onClearSelectedRow: clearSelectedRow,
+    onRequestConfirmDelete: setPendingDelete,
+    onExecuteDeleteRecords: workspace.handleDeleteRecords,
     t,
   });
 
@@ -101,6 +107,41 @@ export default function App() {
     },
     [sql]
   );
+
+  const handleRequestDeleteRows = useCallback(
+    (rowsToDelete: IDBRecordRow[]) => {
+      if (!workspace.selectedDb || !workspace.selectedStore) return;
+      const keys = rowsToDelete.map((r) => r._idbKey).filter((k) => k !== undefined);
+      if (keys.length === 0) return;
+
+      const dbName = workspace.selectedDb;
+      const storeName = workspace.selectedStore;
+      setPendingDelete({
+        dbName,
+        storeName,
+        keys,
+        count: keys.length,
+        clearAll: false,
+        onConfirm: async () => {
+          await workspace.handleDeleteRecords(dbName, storeName, keys, false);
+        },
+      });
+    },
+    [workspace.handleDeleteRecords, workspace.selectedDb, workspace.selectedStore]
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      await pendingDelete.onConfirm();
+      setPendingDelete(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t.deleteFailedError, 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [pendingDelete, showToast, t.deleteFailedError]);
 
   return (
     <div
@@ -152,6 +193,11 @@ export default function App() {
               error={workspace.catalogError || workspace.storeError}
               selectedRow={workspace.selectedRow}
               onSelectRow={workspace.setSelectedRow}
+              checkedKeyIds={workspace.checkedKeyIds}
+              onToggleRowCheck={workspace.toggleRowCheck}
+              onToggleAllPageCheck={workspace.toggleAllPageCheck}
+              onClearCheckedRows={workspace.clearCheckedRows}
+              onRequestDeleteRows={handleRequestDeleteRows}
               onOpenInSql={handleOpenInSql}
               onSeedSample={extensionMode ? undefined : workspace.handleSeedSample}
               isExtensionMode={extensionMode}
@@ -205,11 +251,25 @@ export default function App() {
             <RowInspector
               row={workspace.selectedRow}
               onClose={() => workspace.setSelectedRow(null)}
+              onDeleteRow={
+                activeView === 'table'
+                  ? (row) => handleRequestDeleteRows([row])
+                  : undefined
+              }
               t={t}
             />
           )}
         </main>
       </div>
+
+      <ConfirmDeleteModal
+        pending={pendingDelete}
+        isDeleting={isDeleting}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        t={t}
+        locale={locale}
+      />
 
       {toast && (
         <div

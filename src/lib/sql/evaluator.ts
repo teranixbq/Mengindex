@@ -99,6 +99,10 @@ function evalWhere(expr: WhereExpr, row: IDBRecordRow): boolean {
   }
 }
 
+export function filterRowsByWhere(rows: IDBRecordRow[], where?: WhereExpr): IDBRecordRow[] {
+  return where ? rows.filter((r) => evalWhere(where, r)) : rows;
+}
+
 function computeAggregate(
   fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
   arg: string,
@@ -152,8 +156,12 @@ export function executeParsedSql(
     };
   }
 
+  if (parsed.type === 'DELETE') {
+    throw new Error('DELETE queries must be executed through the delete runner.');
+  }
+
   const scannedCount = rows.length;
-  const filtered = parsed.where ? rows.filter((r) => evalWhere(parsed.where!, r)) : rows;
+  const filtered = filterRowsByWhere(rows, parsed.where);
   const hasAgg = parsed.selectItems.some((item) => item.kind === 'agg');
   const isGrouped = parsed.groupBy.length > 0 || hasAgg;
 
