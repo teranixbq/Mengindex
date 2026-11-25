@@ -1,7 +1,7 @@
 {
   "name": "mengindex",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Chrome extension to browse, filter, and query IndexedDB with SQL.",
   "type": "module",
   "scripts": {

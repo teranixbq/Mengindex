@@ -5,8 +5,8 @@
 ## Features
 
 - **One-Click Active Tab Inspection** — Clicking the toolbar icon opens a dedicated full-screen workspace targeting the active Chrome tab's IndexedDB.
-- **Table View & Persistent Filters** — Global search, multi-column filter rules, sorting, pagination, JSON/CSV export, and a Tree/Raw JSON Record Inspector. Active filters convert to SQL via **Open in SQL** and remain preserved when switching back.
-- **MV3-Safe SQL Query Console** — Client-side SQL lexer, parser, and evaluator (zero `eval`) supporting `SELECT`, `WHERE`, `AND`/`OR`, `LIKE`, `IN`, `IS NULL`, `GROUP BY`, `ORDER BY`, `LIMIT`, `OFFSET`, `DISTINCT`, nested dot-paths (e.g. `shipping.city`), aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`), `SHOW STORES`, and query history.
+- **Table View, Filters & Row Deletion** — Global search, multi-column filter rules, sorting, pagination, JSON/CSV export, row checkboxes for bulk/single deletion with confirmation, and a Tree/Raw JSON Record Inspector. Active filters convert to SQL via **Open in SQL** and remain preserved when switching back.
+- **MV3-Safe SQL Query Console** — Client-side SQL lexer, parser, and evaluator (zero `eval`) supporting `SELECT`, `DELETE FROM ... [WHERE ...]`, `WHERE`, `AND`/`OR`, `LIKE`, `IN`, `IS NULL`, `GROUP BY`, `ORDER BY`, `LIMIT`, `OFFSET`, `DISTINCT`, nested dot-paths (e.g. `shipping.city`), aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`), `SHOW STORES`, and query history.
 - **Context-Aware SQL Autocomplete** — Suggests object store names, attributes (including nested paths), aggregate functions, and SQL keywords (`↑`/`↓`, `Tab`/`Enter`, `Ctrl+Space`).
 - **Schema View & Resizable Sidebar** — Compact column & index inspection with a draggable sidebar (`200px–520px`, double-click to reset).
 - **Multi-Language UI** — English (default), Bahasa Indonesia, and Simplified Chinese (`中文`).

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Mengindex — IndexedDB SQL Explorer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Browse, filter, and query the active tab's IndexedDB with SQL.",
   "permissions": [
     "activeTab",
